@@ -1,0 +1,103 @@
+public class Viagem{
+
+    // ATRIBUTOS DA VIAGEM
+
+   private  Orcamento orcamento;
+   private Despesa despesa;
+   private Participante participante;
+}
+
+   
+   // CLASSE PARTICIPANTE
+ 
+ public class Participante {
+
+    // ATRIBUTOS DO PARTICIPANTE
+    private String nome;
+    private double orcamento;
+
+    // CONSTRUTOR
+    public Participante(String nome, double orcamento) {
+        this.nome = nome;
+        this.orcamento = orcamento;
+    }
+
+    // GET NOME
+    public String getNome() {
+        return nome;
+    }
+
+    // GET ORCAMENTO
+    public double getOrcamento() {
+        return orcamento;
+    }
+
+    // SET ORCAMENTO
+    public void setOrcamento(double orcamento) {
+        this.orcamento = orcamento;
+    }
+
+}
+   
+
+
+
+class Orcamento {
+
+    private double ana = 70.00;
+    private double bruno = 60.00;
+    private double carla = 70.00;
+
+    public void descontarAna(double despesa) {
+        ana -= despesa;
+    }
+
+    public void descontarBruno(double despesa) {
+        bruno -= despesa;
+    }
+
+    public void descontarCarla(double despesa) {
+        carla -= despesa;
+    }
+
+    public void mostrarOrcamentos() {
+
+        System.out.println("=== ORCAMENTOS ===");
+
+        System.out.println("Ana: R$ " + ana);
+        System.out.println("Bruno: R$ " + bruno);
+        System.out.println("Carla: R$ " + carla);
+    }
+}
+
+
+        // CLASSE DESPESA
+class Despesa {
+
+    private Orcamento orcamento;
+
+    public Despesa(Orcamento orcamento) {
+        this.orcamento = orcamento;
+    }
+
+    public void registrarDespesas() {
+
+        // DESPESAS DA ANA
+        orcamento.descontarAna(30.00); // Transporte
+        orcamento.descontarAna(20.00); // Almoco
+        orcamento.descontarAna(15.00); // Atividade
+        orcamento.descontarAna(10.00); // Sobremesa
+
+        // DESPESAS DO BRUNO
+        orcamento.descontarBruno(30.00); // Transporte
+        orcamento.descontarBruno(20.00); // Almoco
+        orcamento.descontarBruno(0.00);  // Atividade
+        orcamento.descontarBruno(10.00); // Sobremesa
+
+        // DESPESAS DA CARLA
+        orcamento.descontarCarla(30.00); // Transporte
+        orcamento.descontarCarla(20.00); // Almoco
+        orcamento.descontarCarla(15.00); // Atividade
+        orcamento.descontarCarla(10.00); // Sobremesa
+    }
+}
