@@ -1,8 +1,13 @@
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.DefaultTableModel;
 
 public class TelaViagem {
 
@@ -121,9 +126,13 @@ public class TelaViagem {
         painelDespesa.add(rolagemLista, BorderLayout.CENTER);
         painelDespesa.add(botoesDespesa, BorderLayout.SOUTH);
 
-        // ---- Resultado final (embaixo) ----
+        // ---- Salvar / Carregar / Resultado final (embaixo) ----
+        JButton botaoSalvar = new JButton("Salvar CSV");
+        JButton botaoCarregar = new JButton("Carregar CSV");
         JButton botaoResultado = new JButton("Ver resultado final");
         JPanel painelSul = new JPanel();
+        painelSul.add(botaoSalvar);
+        painelSul.add(botaoCarregar);
         painelSul.add(botaoResultado);
 
         frame.add(painelCadastro, BorderLayout.NORTH);
@@ -137,6 +146,8 @@ public class TelaViagem {
         botaoTodos.addActionListener(e -> {
             if (modeloLista.size() > 0) listaPessoas.addSelectionInterval(0, modeloLista.size() - 1);
         });
+        botaoSalvar.addActionListener(e -> salvar());
+        botaoCarregar.addActionListener(e -> carregar());
         botaoResultado.addActionListener(e -> mostrarResultado());
         comboCategoria.addActionListener(e -> atualizarInfoDespesa());
 
@@ -166,15 +177,19 @@ public class TelaViagem {
             return;
         }
 
-        Pessoa p = new Pessoa(nome, orcamento);
-        pessoas.add(p);
-        modeloLista.addElement(nome);
-        modelo.addRow(new Object[9]);
-        atualizarLinha(pessoas.size() - 1);
+        inserirPessoa(new Pessoa(nome, orcamento));
 
         campoNome.setText("");
         campoOrcamento.setText("");
         campoNome.requestFocus();
+    }
+
+    // Coloca uma pessoa na lista, na tabela e na caixa "Quem participa?"
+    private void inserirPessoa(Pessoa p) {
+        pessoas.add(p);
+        modeloLista.addElement(p.nome);
+        modelo.addRow(new Object[9]);
+        atualizarLinha(pessoas.size() - 1);
     }
 
     private void aplicarDespesa() {
@@ -223,6 +238,107 @@ public class TelaViagem {
               .append(" | ").append(p.situacao()).append("\n");
         }
         aviso(sb.toString());
+    }
+
+    // =====================================================
+    //  SALVAR / CARREGAR EM CSV
+    //  Formato (separador ponto e vírgula, abre no Excel):
+    //  Nome;Orcamento;Transporte;Almoco;Atividade recreativa;Sobremesa
+    //  Ana;70.0;30.0;20.0;15.0;10.0
+    // =====================================================
+    private void salvar() {
+        if (pessoas.isEmpty()) {
+            aviso("Nenhum participante para salvar.");
+            return;
+        }
+
+        JFileChooser seletor = criarSeletor();
+        if (seletor.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return; // o usuário cancelou
+        }
+        Path arquivo = seletor.getSelectedFile().toPath();
+        if (!arquivo.getFileName().toString().toLowerCase().endsWith(".csv")) {
+            arquivo = arquivo.resolveSibling(arquivo.getFileName() + ".csv");
+        }
+
+        List<String> linhas = new ArrayList<>();
+        linhas.add("Nome;Orcamento;Transporte;Almoco;Atividade recreativa;Sobremesa");
+        for (Pessoa p : pessoas) {
+            linhas.add(p.nome.replace(";", ",") + ";" + p.orcamento
+                    + ";" + p.gastos[0] + ";" + p.gastos[1]
+                    + ";" + p.gastos[2] + ";" + p.gastos[3]);
+        }
+
+        try {
+            Files.write(arquivo, linhas, StandardCharsets.UTF_8);
+            aviso("Dados salvos em:\n" + arquivo);
+        } catch (IOException e) {
+            aviso("Não foi possível salvar o arquivo.");
+        }
+    }
+
+    private void carregar() {
+        JFileChooser seletor = criarSeletor();
+        if (seletor.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return; // o usuário cancelou
+        }
+        Path arquivo = seletor.getSelectedFile().toPath();
+
+        // Lê tudo primeiro: se o arquivo estiver errado, a tela atual não é alterada
+        List<Pessoa> lidas = new ArrayList<>();
+        try {
+            for (String linha : Files.readAllLines(arquivo, StandardCharsets.UTF_8)) {
+                linha = linha.replace("\uFEFF", ""); // remove marca invisível que o Excel pode colocar
+                if (linha.isBlank() || linha.startsWith("Nome;")) {
+                    continue; // pula linha vazia e o cabeçalho
+                }
+                String[] c = linha.split(";");
+                if (c.length != 6) {
+                    throw new IllegalArgumentException("Linha com número de colunas errado");
+                }
+                Pessoa p = new Pessoa(c[0].trim(), numero(c[1]));
+                for (int i = 0; i < 4; i++) {
+                    p.gastos[i] = numero(c[i + 2]);
+                }
+                lidas.add(p);
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            aviso("Não foi possível carregar o arquivo.\nConfira se ele foi salvo por este programa.");
+            return;
+        }
+
+        if (lidas.isEmpty()) {
+            aviso("O arquivo não tem nenhum participante.");
+            return;
+        }
+
+        if (!pessoas.isEmpty()) {
+            int resposta = JOptionPane.showConfirmDialog(frame,
+                    "Carregar vai substituir os dados que estão na tela. Continuar?",
+                    "Carregar CSV", JOptionPane.YES_NO_OPTION);
+            if (resposta != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+
+        pessoas.clear();
+        modeloLista.clear();
+        modelo.setRowCount(0);
+        for (Pessoa p : lidas) {
+            inserirPessoa(p);
+        }
+        aviso(lidas.size() + " participante(s) carregado(s).");
+    }
+
+    private JFileChooser criarSeletor() {
+        JFileChooser seletor = new JFileChooser();
+        seletor.setFileFilter(new FileNameExtensionFilter("Arquivos CSV (*.csv)", "csv"));
+        return seletor;
+    }
+
+    // Lê número aceitando ponto ou vírgula; lança erro (NumberFormatException) se for inválido
+    private double numero(String texto) {
+        return Double.parseDouble(texto.trim().replace(",", "."));
     }
 
     private Double lerValor(String texto) {
